@@ -12,7 +12,17 @@ while the refresh token is used to obtain new 'access tokens' once the current o
 5. access and refresh token
 6. mostly token send in cookie send
 
-# Jwt token coming from header
+# Jwt => `JSON web token` https://jwt.io/introduction
+
+In its compact form, JSON Web Tokens consist of three parts separated by dots (.),
+Header
+Payload
+Signature
+Therefore, a JWT typically looks like => xxxxx.yyyyy.zzzzz
+
+1. JWT is used for authentication and authorization, allowing the transmission of user information securely between parties.
+
+2. bcrypt is used for password encryption, ensuring that passwords are securely stored in a hashed format in the database.
 
 Authorization: Brarer <token>
 

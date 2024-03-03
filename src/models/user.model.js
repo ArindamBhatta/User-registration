@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import Jwt from "jsonwebtoken"; //key store in env
+import Jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 const userSchema = new mongoose.Schema(
   {
@@ -64,7 +64,7 @@ userSchema.method.isPasswordCorrect = async function (password) {
 };
 
 userSchema.method.generateAccessToken = function () {
-  //for genrate token
+  //sudu id patabo sob kichu decode kra
   Jwt.sign(
     {
       _id: this._id,

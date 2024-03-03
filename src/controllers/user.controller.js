@@ -10,14 +10,16 @@ const generateAccessAndRepressToken = async (userId) => {
     const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
+    //user ar refresh token assign korbo database a
     user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
+    //save korbo database a
+    await user.save({ validateBeforeSave: false }); //kicked in hya jba password requare
+    return { accessToken, refreshToken }; //dia return korbo
   } catch (error) {
     throw new ApiError(
       500,
       "Someone went wrong while generating refresh and access token"
     );
-    return { accessToken, refreshToken };
   }
 };
 
@@ -109,53 +111,76 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User doesn't exist");
   }
 
-  //now if user is their so check password
+  //call the function usermodel
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
     throw new ApiError(401, "invaled User  credentials");
   }
-  const { accessToken, refreshToken } =
+
+  // call generateAccessAndRepressToken()
+  const {
+    accessToken,
+    refreshToken,
+  } = //return glo access korbo variable a
     await generateAccessAndRepressToken.apply(user._id);
 
-  //again call athe database to send data to
+  /*
+    1) user ka information patabo pasword patobo na 
+    2)ja user ka findOne dia call korachi or kacha refresh token empty acha
+    3) method call koracha  generateAccessAndRepressToken() pora
+    4) abar database ka call korbo
+  */
   const logginUser = User.findById(user._id).select("-password -refreshToken");
+  console.log("logginUser is", logginUser); //new user with refreshToken
 
-  console.log("logginUser is", logginUser);
-
-  //for secure http headers
+  //cookies patabo
   const options = {
-    httpOnly: true,
-    security: true,
+    httpOnly: true, //frontend tka modified hba na
+    security: true, //https
   };
 
-  return res
-    .status(200)
-    .cookie("accessToken", options)
-    .cookie("refreshToken", refreshToken, options)
-    .json(
-      new ApiResponse(
-        200,
-        {
-          user: logginUser,
-          accessToken,
-          refreshToken,
-        },
-        "User loggin successfully"
+  return (
+    res //responce return korbo client ka
+      .status(200)
+      .cookie("accessToken", accessToken, options) //key,value pair use korata parchi
+      // app.use(cookieParser()); cookie access in two way req.cookie and res.cookie
+      //so ata auth.middlewire a access korbo => req.cookies.accessToken
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            user: logginUser, //if user want to store data
+            accessToken,
+            refreshToken,
+          },
+          "User loggin successfully"
+        )
       )
-    );
+  );
 });
-
+/* logout kevba korbo
+    1. cookies clear korbo 
+    2. database tka refreshtoken reset korbo
+    3. email or username dia  korta parbo na becaused req.body korla abar from data patata hba. ar user jka chaiba tka logout kora dba.
+    4. tahola id pbo kta dia? 
+      ans: - middlewire. jbar aga dka kora jay example multer: from ar dta jacah tar sta image o nia jao.
+    5. res kora hoycha accessToken  object.cookie so ota tka access korbo
+    so abar nijar middlewire banabo auth.middlewire
+*/
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
+    //referce store korbar dokar nai
     req.user._id,
+    //ai khan a req.user ar access pya jbo
     {
       $set: {
-        refreshToken: false,
+        refreshToken: undefined,
       },
     },
     {
-      new: true,
+      new: true, //return a new updated value pbo na korla old value dba
     }
   );
   const options = {
@@ -164,7 +189,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   };
   return res
     .status(200)
-    .clearCookie("accessToken", options)
+    .clearCookie("accessToken", options) //cookie clear koradbo option o pass korta hba user ar tka
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "User logged Out"));
 });
