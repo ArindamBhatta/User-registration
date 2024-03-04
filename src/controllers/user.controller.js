@@ -3,7 +3,6 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponce.js";
-import { json } from "express";
 
 const generateAccessAndRepressToken = async (userId) => {
   try {
@@ -42,8 +41,14 @@ const registerUser = asyncHandler(async (req, res) => {
   console.log("Avatar file description:", req.files?.avatar);
   console.log("Cover image description:", req.files?.coverImage);
 
-  const avatarLocalPath = req.files?.avatar[0]?.path;
-  //const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  let avatarLocalPath;
+  if (
+    req.files &&
+    Array.isArray(req.files.coverImage) &&
+    req.files.coverImage.length > 0
+  ) {
+    avatarLocalPath = req.files?.avatar[0]?.path;
+  }
 
   let coverImageLocalPath;
   if (
@@ -65,7 +70,6 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!avatar) {
     throw new ApiError(400, "Avatar file is required");
   }
-  //hear we create a new instance
   const user = await User.create({
     fullname: fullname,
     avatar: avatar.url,
@@ -96,14 +100,13 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
   console.log("req object from client is", req.body);
-  if (!username || !email) {
+  if (!(username || email)) {
     throw new ApiError(400, "Username or email is require");
   }
 
-  //aggregation pipeline for finding the whole value
   const user = await User.findOne({
     $or: [{ username }, { email }],
-  }); //return a boolean value
+  });
 
   console.log("mongodb return user is", user);
 
@@ -111,69 +114,42 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User doesn't exist");
   }
 
-  //call the function usermodel
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
     throw new ApiError(401, "invaled User  credentials");
   }
-
-  // call generateAccessAndRepressToken()
-  const {
-    accessToken,
-    refreshToken,
-  } = //return glo access korbo variable a
+  const { accessToken, refreshToken } =
     await generateAccessAndRepressToken.apply(user._id);
 
-  /*
-    1) user ka information patabo pasword patobo na 
-    2)ja user ka findOne dia call korachi or kacha refresh token empty acha
-    3) method call koracha  generateAccessAndRepressToken() pora
-    4) abar database ka call korbo
-  */
   const logginUser = User.findById(user._id).select("-password -refreshToken");
-  console.log("logginUser is", logginUser); //new user with refreshToken
+  console.log("logginUser is", logginUser);
 
-  //cookies patabo
   const options = {
-    httpOnly: true, //frontend tka modified hba na
-    security: true, //https
+    httpOnly: true,
+    security: true,
   };
 
-  return (
-    res //responce return korbo client ka
-      .status(200)
-      .cookie("accessToken", accessToken, options) //key,value pair use korata parchi
-      // app.use(cookieParser()); cookie access in two way req.cookie and res.cookie
-      //so ata auth.middlewire a access korbo => req.cookies.accessToken
-      .cookie("refreshToken", refreshToken, options)
-      .json(
-        new ApiResponse(
-          200,
-          {
-            user: logginUser, //if user want to store data
-            accessToken,
-            refreshToken,
-          },
-          "User loggin successfully"
-        )
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: logginUser,
+          accessToken,
+          refreshToken,
+        },
+        "User loggin successfully"
       )
-  );
+    );
 });
-/* logout kevba korbo
-    1. cookies clear korbo 
-    2. database tka refreshtoken reset korbo
-    3. email or username dia  korta parbo na becaused req.body korla abar from data patata hba. ar user jka chaiba tka logout kora dba.
-    4. tahola id pbo kta dia? 
-      ans: - middlewire. jbar aga dka kora jay example multer: from ar dta jacah tar sta image o nia jao.
-    5. res kora hoycha accessToken  object.cookie so ota tka access korbo
-    so abar nijar middlewire banabo auth.middlewire
-*/
+
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
-    //referce store korbar dokar nai
     req.user._id,
-    //ai khan a req.user ar access pya jbo
     {
       $set: {
         refreshToken: undefined,
@@ -189,7 +165,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   };
   return res
     .status(200)
-    .clearCookie("accessToken", options) //cookie clear koradbo option o pass korta hba user ar tka
+    .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "User logged Out"));
 });

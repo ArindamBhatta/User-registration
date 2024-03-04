@@ -1,6 +1,12 @@
 import mongoose, { Schema } from "mongoose";
 import Jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+console.log("Access token serect is  ", process.env.ACCESS_TOKEN_SECRET);
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -9,7 +15,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      index: true, //for searching parpose in database optimise
+      index: true,
     },
     email: {
       type: String,
@@ -25,7 +31,7 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
     avatar: {
-      type: String, //cloudinary url
+      type: String,
       require: true,
     },
     coverImage: {
@@ -47,23 +53,27 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-/*if user click the save  button  pasword encript is start. but if i am saving my photo than also my pasword start encription so only it will update when pasword is save*/
 
 //pre and post hooks
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next(); //if password doesn't modified return
-  this.password = bcrypt.hash(this.password, 10); //this is empty object it's a new variable and 10 is layer
-  console.log("password after encript", this.password);
-  next();
+  if (!this.isModified("password")) return next();
+  try {
+    const hashedPassword = await bcrypt.hash(this.password, 10);
+    this.password = hashedPassword;
+    console.log("password after encrypt", this.password);
+    next();
+  } catch (error) {
+    return next(error);
+  }
 });
 
-//create a custom hooks, an inbuild function isPasswordCorrect
-userSchema.method.isPasswordCorrect = async function (password) {
-  //this Argument password send by user in login req
-  return await bcrypt.compare(password, this.password); //this.password is a empty object where we store bcrypt password
+// Method to check if password is correct
+userSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
 };
 
-userSchema.method.generateAccessToken = function () {
+// Method to generate access token
+userSchema.methods.generateAccessToken = function () {
   //sudu id patabo sob kichu decode kra
   Jwt.sign(
     {
@@ -77,7 +87,8 @@ userSchema.method.generateAccessToken = function () {
     }
   );
 };
-userSchema.method.generateRefreshToken = function () {
+// Method to generate refresh token
+userSchema.methods.generateRefreshToken = function () {
   Jwt.sign(
     {
       _id: this._id,
