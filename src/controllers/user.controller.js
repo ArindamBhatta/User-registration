@@ -4,20 +4,20 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponce.js";
 
-const generateAccessAndRepressToken = async (userId) => {
+const generateAccessAndRefereshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
-    //user ar refresh token assign korbo database a
+
     user.refreshToken = refreshToken;
-    //save korbo database a
-    await user.save({ validateBeforeSave: false }); //kicked in hya jba password requare
-    return { accessToken, refreshToken }; //dia return korbo
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
   } catch (error) {
     throw new ApiError(
       500,
-      "Someone went wrong while generating refresh and access token"
+      "Something went wrong while generating referesh and access token"
     );
   }
 };
@@ -119,11 +119,15 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!isPasswordValid) {
     throw new ApiError(401, "invaled User  credentials");
   }
-  const { accessToken, refreshToken } =
-    await generateAccessAndRepressToken.apply(user._id);
 
-  const logginUser = User.findById(user._id).select("-password -refreshToken");
-  console.log("logginUser is", logginUser);
+  const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(
+    user._id
+  ); //error siply called
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+  console.log("logginUser is", loggedInUser);
 
   const options = {
     httpOnly: true,
@@ -138,7 +142,7 @@ const loginUser = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         {
-          user: logginUser,
+          user: loggedInUser,
           accessToken,
           refreshToken,
         },

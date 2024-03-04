@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import Jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 
@@ -58,24 +58,25 @@ const userSchema = new mongoose.Schema(
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   try {
-    const hashedPassword = await bcrypt.hash(this.password, 10);
-    this.password = hashedPassword;
+    this.password = await bcrypt.hash(this.password, 10);
     console.log("password after encrypt", this.password);
+    console.log(typeof this.password); //string
     next();
   } catch (error) {
     return next(error);
   }
 });
 
-// Method to check if password is correct
 userSchema.methods.isPasswordCorrect = async function (password) {
-  return await bcrypt.compare(password, this.password);
+  console.log(typeof password); //password data become number
+  const passwordString = password.toString();
+  console.log(typeof passwordString);
+  return await bcrypt.compare(passwordString, this.password);
 };
 
 // Method to generate access token
 userSchema.methods.generateAccessToken = function () {
-  //sudu id patabo sob kichu decode kra
-  Jwt.sign(
+  return jwt.sign(
     {
       _id: this._id,
       email: this.email,
@@ -87,9 +88,9 @@ userSchema.methods.generateAccessToken = function () {
     }
   );
 };
-// Method to generate refresh token
+
 userSchema.methods.generateRefreshToken = function () {
-  Jwt.sign(
+  return jwt.sign(
     {
       _id: this._id,
       email: this.email,
